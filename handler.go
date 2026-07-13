@@ -1,18 +1,38 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"unicode/utf8"
 )
 
-func handlerEndpoint(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+func handlerHealthzEnd(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(200)
 	w.Write([]byte("OK\n"))
 }
 
+func handlerValidateChirpEnd(w http.ResponseWriter, r *http.Request) {
+	var chirpPost ChirpPost
+	if err := json.NewDecoder(r.Body).Decode(&chirpPost); err != nil {
+		log.Printf("Error decoding chirpPost: %s", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body")
+		return
+	}
+
+	if utf8.RuneCountInString(chirpPost.Body) > 140 {
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		return
+	}
+
+	chirpPost.Body = cleanProfane(chirpPost.Body)
+	respondWithJSON(w, http.StatusOK, CleanBodyResp{CleanedBody: chirpPost.Body})
+}
+
 func (c *apiConfig) handlerRequestNum(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(200)
 	text := fmt.Sprintf(`<html>
 <body>
