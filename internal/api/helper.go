@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	if err := json.NewEncoder(w).Encode(APIError{Error: msg}); err != nil {
+	if err := json.NewEncoder(w).Encode(apiError{Error: msg}); err != nil {
 		log.Printf("Error encoding error response: %v", err)
 	}
 }

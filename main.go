@@ -2,28 +2,16 @@ package main
 
 import (
 	"net/http"
-	"sync/atomic"
+
+	"github.com/Robot-tim1/Chirpy/internal/api"
 )
 
-type apiConfig struct {
-	fileserverHits atomic.Int32
-}
-
 func main() {
-	apiConfig := apiConfig{atomic.Int32{}}
+	server := api.NewServer()
 
-	serveMux := http.NewServeMux()
-	fsHandler := apiConfig.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
-	serveMux.Handle("/app/", fsHandler)
-
-	serveMux.HandleFunc("GET /admin/metrics", apiConfig.handlerRequestNum)
-	serveMux.HandleFunc("POST /admin/reset", apiConfig.handlerResetNum)
-	serveMux.HandleFunc("GET /api/healthz", handlerHealthzEnd)
-	serveMux.HandleFunc("POST /api/validate_chirp", handlerValidateChirpEnd)
-
-	server := &http.Server{
-		Handler: serveMux,
+	httpServer := &http.Server{
+		Handler: server.Handler(),
 		Addr:    ":8080",
 	}
-	server.ListenAndServe()
+	httpServer.ListenAndServe()
 }

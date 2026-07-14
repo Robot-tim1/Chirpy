@@ -1,13 +1,13 @@
-package main
+package api
 
-type ChirpPost struct {
+type chirpPost struct {
 	Body string `json:"body"`
 }
 
-type APIError struct {
+type apiError struct {
 	Error string `json:"error"`
 }
 
-type CleanBodyResp struct {
+type cleanBodyResp struct {
 	CleanedBody string `json:"cleaned_body"`
 }

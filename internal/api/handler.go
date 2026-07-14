@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ func handlerHealthzEnd(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerValidateChirpEnd(w http.ResponseWriter, r *http.Request) {
-	var chirpPost ChirpPost
+	var chirpPost chirpPost
 	if err := json.NewDecoder(r.Body).Decode(&chirpPost); err != nil {
 		log.Printf("Error decoding chirpPost: %s", err)
 		respondWithError(w, http.StatusBadRequest, "error decoding request body")
@@ -28,7 +28,7 @@ func handlerValidateChirpEnd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	chirpPost.Body = cleanProfane(chirpPost.Body)
-	respondWithJSON(w, http.StatusOK, CleanBodyResp{CleanedBody: chirpPost.Body})
+	respondWithJSON(w, http.StatusOK, cleanBodyResp{CleanedBody: chirpPost.Body})
 }
 
 func (c *apiConfig) handlerRequestNum(w http.ResponseWriter, r *http.Request) {
