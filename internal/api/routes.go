@@ -3,22 +3,30 @@ package api
 import (
 	"net/http"
 	"sync/atomic"
+
+	"github.com/Robot-tim1/Chirpy/internal/database"
 )
 
 type Server struct {
-	mux       *http.ServeMux
-	apiConfig *apiConfig
-	// db   *database.DB
+	mux *http.ServeMux
+	cfg *apiConfig
 }
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
+	platform       string
 }
 
-func NewServer() *Server {
+// if this function gets any more params just make a struct for it
+func NewServer(db database.DBTX, platform string) *Server {
 	s := &Server{
-		mux:       http.NewServeMux(),
-		apiConfig: &apiConfig{atomic.Int32{}},
+		mux: http.NewServeMux(),
+		cfg: &apiConfig{
+			fileserverHits: atomic.Int32{},
+			db:             database.New(db),
+			platform:       platform,
+		},
 	}
 	s.registerRoutes()
 	return s
@@ -29,12 +37,14 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) registerRoutes() {
-	fsHandler := s.apiConfig.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	fsHandler := s.cfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("."))))
 	s.mux.Handle("/app/", fsHandler)
 
-	s.mux.HandleFunc("GET /admin/metrics", s.apiConfig.handlerRequestNum)
-	s.mux.HandleFunc("POST /admin/reset", s.apiConfig.handlerResetNum)
+	s.mux.HandleFunc("GET /admin/metrics", s.cfg.handlerRequestNum)
+	s.mux.HandleFunc("POST /admin/reset", s.cfg.handlerResetEnd)
 	s.mux.HandleFunc("GET /api/healthz", handlerHealthzEnd)
-	s.mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirpEnd)
-
+	s.mux.HandleFunc("POST /api/chirps", s.cfg.handlerChirpPost)
+	s.mux.HandleFunc("GET /api/chirps", s.cfg.handlerChirpGet)
+	s.mux.HandleFunc("GET /api/chirps/{chirpID}", s.cfg.handlerChirpGetID)
+	s.mux.HandleFunc("POST /api/users", s.cfg.handlerUserEnd)
 }

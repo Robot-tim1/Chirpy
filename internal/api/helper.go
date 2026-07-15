@@ -7,12 +7,11 @@ import (
 	"strings"
 )
 
-func respondWithError(w http.ResponseWriter, code int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	if err := json.NewEncoder(w).Encode(apiError{Error: msg}); err != nil {
-		log.Printf("Error encoding error response: %v", err)
+func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
+	if err != nil {
+		log.Printf("error details: %v", err)
 	}
+	respondWithJSON(w, code, apiError{Error: msg})
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload any) {
