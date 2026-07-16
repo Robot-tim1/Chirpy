@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"unicode/utf8"
 
+	"github.com/Robot-tim1/Chirpy/internal/auth"
 	"github.com/Robot-tim1/Chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -17,7 +18,7 @@ func handlerHealthzEnd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
-	var chirpPost chirpPost
+	var chirpPost chirpReq
 	if err := json.NewDecoder(r.Body).Decode(&chirpPost); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
 		return
@@ -74,21 +75,71 @@ func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerUserEnd(w http.ResponseWriter, r *http.Request) {
-	var userEmail createUser
-	if err := json.NewDecoder(r.Body).Decode(&userEmail); err != nil {
+	var userProfile userReq
+	if err := json.NewDecoder(r.Body).Decode(&userProfile); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
 		return
 	}
 
-	dbuser, err := c.db.CreateUser(r.Context(), userEmail.Email)
+	if userProfile.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "please enter a password", nil)
+		return
+	}
+
+	hashedpassword, err := auth.HashPassword(userProfile.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
+		return
+	}
+
+	params := database.CreateUserParams{
+		Email:          userProfile.Email,
+		HashedPassword: hashedpassword,
+	}
+
+	dbuser, err := c.db.CreateUser(r.Context(), params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error creating user in database", err)
 		return
 	}
 
-	user := userResp(dbuser)
+	userResp := userResp{
+		ID:        dbuser.ID,
+		CreatedAt: dbuser.CreatedAt,
+		UpdatedAt: dbuser.UpdatedAt,
+		Email:     dbuser.Email,
+	}
 
-	respondWithJSON(w, http.StatusCreated, user)
+	respondWithJSON(w, http.StatusCreated, userResp)
+}
+
+func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
+	var userProfile userReq
+	if err := json.NewDecoder(r.Body).Decode(&userProfile); err != nil {
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		return
+	}
+
+	dbuser, err := c.db.GetUserFromEmail(r.Context(), userProfile.Email)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
+		return
+	}
+
+	match, err := auth.CheckPasswordHash(userProfile.Password, dbuser.HashedPassword)
+	if !match {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		return
+	}
+
+	userResp := userResp{
+		ID:        dbuser.ID,
+		CreatedAt: dbuser.CreatedAt,
+		UpdatedAt: dbuser.UpdatedAt,
+		Email:     dbuser.Email,
+	}
+
+	respondWithJSON(w, http.StatusOK, userResp)
 }
 
 func (c *apiConfig) handlerRequestNum(w http.ResponseWriter, r *http.Request) {

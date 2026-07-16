@@ -47,4 +47,5 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/chirps", s.cfg.handlerChirpGet)
 	s.mux.HandleFunc("GET /api/chirps/{chirpID}", s.cfg.handlerChirpGetID)
 	s.mux.HandleFunc("POST /api/users", s.cfg.handlerUserEnd)
+	s.mux.HandleFunc("POST /api/login", s.cfg.handlerLoginEnd)
 }

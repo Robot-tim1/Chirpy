@@ -10,13 +10,14 @@ type apiError struct {
 	Error string `json:"error"`
 }
 
-type chirpPost struct {
+type chirpReq struct {
 	Body   string    `json:"body"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-type createUser struct {
-	Email string `json:"email"`
+type userReq struct {
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 type userResp struct {
