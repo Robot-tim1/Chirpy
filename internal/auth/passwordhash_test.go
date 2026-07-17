@@ -27,8 +27,16 @@ func TestCheckPasswordHash(t *testing.T) {
 	if !match {
 		t.Fatalf("test failed: password does not match it's own hash")
 	}
+}
 
-	match, err = CheckPasswordHash("unsafepassword", hash)
+func TestCheckWrongPasswordHash(t *testing.T) {
+	password := "securepassword"
+	hash, err := HashPassword(password)
+	if err != nil {
+		t.Fatal("error making hash, test could not be run")
+	}
+
+	match, err := CheckPasswordHash("unsafepassword", hash)
 	if err != nil {
 		t.Fatalf("test failed: CheckPasswordHash function error: %v", err)
 	}
