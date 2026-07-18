@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -65,5 +66,31 @@ func TestJWTWrongSecret(t *testing.T) {
 	_, err = ValidateJWT(tokenString, "superwrongcode")
 	if err == nil {
 		t.Fatal("test failed: token validated with wrong tokensecret")
+	}
+}
+
+func TestGetBearerToken(t *testing.T) {
+	var value []string
+	value = append(value, "Bearer 12345")
+	headers := http.Header{"Authorization": value}
+
+	tokenString, err := GetBearerToken(headers)
+	if err != nil {
+		t.Fatalf("test failed: error getting token string from header: %v", err)
+	}
+
+	if tokenString != "12345" {
+		t.Fatalf("test failed: token string output: %s, expected: 12345", tokenString)
+	}
+}
+
+func TestGetBearerTokenError(t *testing.T) {
+	var value []string
+	value = append(value, "Bearer 12345")
+	headers := http.Header{"Accept": value}
+
+	_, err := GetBearerToken(headers)
+	if err == nil {
+		t.Fatalf("test failed: returned no errors with no Authorization header")
 	}
 }

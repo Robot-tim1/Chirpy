@@ -24,8 +24,12 @@ func main() {
 	}
 	defer db.Close()
 
-	platform := os.Getenv("PLATFORM")
-	server := api.NewServer(db, platform)
+	apiConfigParams := api.ApiConfigParams{
+		Db:       db,
+		Platform: os.Getenv("PLATFORM"),
+		Secret:   os.Getenv("SECRET"),
+	}
+	server := api.NewServer(apiConfigParams)
 
 	httpServer := &http.Server{
 		Handler: server.Handler(),

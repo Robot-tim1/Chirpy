@@ -16,16 +16,23 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	secret         string
 }
 
-// if this function gets any more params just make a struct for it
-func NewServer(db database.DBTX, platform string) *Server {
+type ApiConfigParams struct {
+	Db       database.DBTX
+	Platform string
+	Secret   string
+}
+
+func NewServer(params ApiConfigParams) *Server {
 	s := &Server{
 		mux: http.NewServeMux(),
 		cfg: &apiConfig{
 			fileserverHits: atomic.Int32{},
-			db:             database.New(db),
-			platform:       platform,
+			db:             database.New(params.Db),
+			platform:       params.Platform,
+			secret:         params.Secret,
 		},
 	}
 	s.registerRoutes()
@@ -48,4 +55,6 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/chirps/{chirpID}", s.cfg.handlerChirpGetID)
 	s.mux.HandleFunc("POST /api/users", s.cfg.handlerUserEnd)
 	s.mux.HandleFunc("POST /api/login", s.cfg.handlerLoginEnd)
+	s.mux.HandleFunc("POST /api/refresh", s.cfg.handlerRefreshEnd)
+	s.mux.HandleFunc("POST /api/revoke", s.cfg.handlerRevokeEnd)
 }

@@ -11,8 +11,7 @@ type apiError struct {
 }
 
 type chirpReq struct {
-	Body   string    `json:"body"`
-	UserID uuid.UUID `json:"user_id"`
+	Body string `json:"body"`
 }
 
 type userReq struct {
@@ -25,6 +24,16 @@ type userResp struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+}
+
+type authResp struct {
+	userResp
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type tokenResp struct {
+	Token string `json:"token"`
 }
 
 type chirpResp struct {

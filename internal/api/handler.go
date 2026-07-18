@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Robot-tim1/Chirpy/internal/auth"
@@ -18,21 +19,33 @@ func handlerHealthzEnd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
-	var chirpPost chirpReq
-	if err := json.NewDecoder(r.Body).Decode(&chirpPost); err != nil {
+	var req chirpReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
 		return
 	}
 
-	if utf8.RuneCountInString(chirpPost.Body) > 140 {
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, c.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		return
+	}
+
+	if utf8.RuneCountInString(req.Body) > 140 {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long", nil)
 		return
 	}
 
-	chirpPost.Body = cleanProfane(chirpPost.Body)
+	req.Body = cleanProfane(req.Body)
 	params := database.CreateChirpParams{
-		Body:   chirpPost.Body,
-		UserID: chirpPost.UserID,
+		Body:   req.Body,
+		UserID: userID,
 	}
 
 	dbChirp, err := c.db.CreateChirp(r.Context(), params)
@@ -41,8 +54,8 @@ func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respChirp := chirpResp(dbChirp)
-	respondWithJSON(w, http.StatusCreated, respChirp)
+	resp := chirpResp(dbChirp)
+	respondWithJSON(w, http.StatusCreated, resp)
 }
 
 func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
@@ -52,12 +65,12 @@ func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respChirps := make([]chirpResp, 0, len(dbChirps))
+	resp := make([]chirpResp, 0, len(dbChirps))
 	for _, c := range dbChirps {
-		respChirps = append(respChirps, chirpResp(c))
+		resp = append(resp, chirpResp(c))
 	}
 
-	respondWithJSON(w, http.StatusOK, respChirps)
+	respondWithJSON(w, http.StatusOK, resp)
 }
 
 func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
@@ -70,30 +83,30 @@ func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respChirp := chirpResp(dbChirp)
-	respondWithJSON(w, http.StatusOK, respChirp)
+	resp := chirpResp(dbChirp)
+	respondWithJSON(w, http.StatusOK, resp)
 }
 
 func (c *apiConfig) handlerUserEnd(w http.ResponseWriter, r *http.Request) {
-	var userProfile userReq
-	if err := json.NewDecoder(r.Body).Decode(&userProfile); err != nil {
+	var req userReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
 		return
 	}
 
-	if userProfile.Password == "" {
+	if req.Password == "" {
 		respondWithError(w, http.StatusBadRequest, "please enter a password", nil)
 		return
 	}
 
-	hashedpassword, err := auth.HashPassword(userProfile.Password)
+	hashedpassword, err := auth.HashPassword(req.Password)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
 		return
 	}
 
 	params := database.CreateUserParams{
-		Email:          userProfile.Email,
+		Email:          req.Email,
 		HashedPassword: hashedpassword,
 	}
 
@@ -103,43 +116,111 @@ func (c *apiConfig) handlerUserEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userResp := userResp{
+	resp := userResp{
 		ID:        dbuser.ID,
 		CreatedAt: dbuser.CreatedAt,
 		UpdatedAt: dbuser.UpdatedAt,
 		Email:     dbuser.Email,
 	}
 
-	respondWithJSON(w, http.StatusCreated, userResp)
+	respondWithJSON(w, http.StatusCreated, resp)
 }
 
 func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
-	var userProfile userReq
-	if err := json.NewDecoder(r.Body).Decode(&userProfile); err != nil {
+	var req userReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
 		return
 	}
 
-	dbuser, err := c.db.GetUserFromEmail(r.Context(), userProfile.Email)
+	dbuser, err := c.db.GetUserFromEmail(r.Context(), req.Email)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
 		return
 	}
 
-	match, err := auth.CheckPasswordHash(userProfile.Password, dbuser.HashedPassword)
+	match, err := auth.CheckPasswordHash(req.Password, dbuser.HashedPassword)
 	if !match {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
-	userResp := userResp{
-		ID:        dbuser.ID,
-		CreatedAt: dbuser.CreatedAt,
-		UpdatedAt: dbuser.UpdatedAt,
-		Email:     dbuser.Email,
+	tokenString, err := auth.MakeJWT(dbuser.ID, c.secret, time.Hour)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
+		return
 	}
 
-	respondWithJSON(w, http.StatusOK, userResp)
+	refreshToken := auth.MakeRefreshToken()
+	params := database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    dbuser.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 1440),
+	}
+
+	_, err = c.db.CreateRefreshToken(r.Context(), params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error creating refresh token record", err)
+		return
+	}
+
+	resp := authResp{
+		userResp: userResp{
+			ID:        dbuser.ID,
+			CreatedAt: dbuser.CreatedAt,
+			UpdatedAt: dbuser.UpdatedAt,
+			Email:     dbuser.Email,
+		},
+		Token:        tokenString,
+		RefreshToken: refreshToken,
+	}
+
+	respondWithJSON(w, http.StatusOK, resp)
+}
+
+func (c *apiConfig) handlerRefreshEnd(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in header", err)
+		return
+	}
+
+	dbRefreshToken, err := c.db.GetRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in database", err)
+		return
+	}
+
+	if dbRefreshToken.RevokedAt.Valid || time.Now().UTC().After(dbRefreshToken.ExpiresAt) {
+		respondWithError(w, http.StatusUnauthorized, "refresh token is invalid", nil)
+		return
+	}
+
+	newTokenString, err := auth.MakeJWT(dbRefreshToken.UserID, c.secret, time.Hour)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
+		return
+	}
+
+	resp := tokenResp{Token: newTokenString}
+
+	respondWithJSON(w, http.StatusOK, resp)
+}
+
+func (c *apiConfig) handlerRevokeEnd(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "error refresh token could not be found", err)
+		return
+	}
+
+	err = c.db.RevokeRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error revoking refresh token", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (c *apiConfig) handlerRequestNum(w http.ResponseWriter, r *http.Request) {
