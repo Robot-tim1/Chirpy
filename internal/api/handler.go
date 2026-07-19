@@ -1,7 +1,9 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -54,7 +56,14 @@ func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := chirpResp(dbChirp)
+	resp := chirpResp{
+		ID:        dbChirp.ID,
+		CreatedAt: dbChirp.CreatedAt,
+		UpdatedAt: dbChirp.UpdatedAt,
+		Body:      dbChirp.Body,
+		UserID:    dbChirp.UserID,
+	}
+
 	respondWithJSON(w, http.StatusCreated, resp)
 }
 
@@ -74,12 +83,19 @@ func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
-	chirpString := r.PathValue("chirpID")
-	chirpId, _ := uuid.Parse(chirpString)
+	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", err)
+		return
+	}
 
 	dbChirp, err := c.db.GetChirp(r.Context(), chirpId)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, fmt.Sprintf("error chirp could not be found at id: %s", chirpString), err)
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Chirp could not be found", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "Database error", err)
 		return
 	}
 
@@ -87,7 +103,50 @@ func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, resp)
 }
 
-func (c *apiConfig) handlerUserEnd(w http.ResponseWriter, r *http.Request) {
+func (c *apiConfig) handlerChirpDeleteID(w http.ResponseWriter, r *http.Request) {
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, c.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		return
+	}
+
+	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", err)
+		return
+	}
+
+	dbChirp, err := c.db.GetChirp(r.Context(), chirpId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Chirp could not be found", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		return
+	}
+
+	if dbChirp.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Can not delete chirp post form other user", nil)
+		return
+	}
+
+	err = c.db.DeleteChirp(r.Context(), dbChirp.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error deleting chirp record", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (c *apiConfig) handlerUserPost(w http.ResponseWriter, r *http.Request) {
 	var req userReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
@@ -126,6 +185,53 @@ func (c *apiConfig) handlerUserEnd(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, resp)
 }
 
+func (c *apiConfig) handlerUserPut(w http.ResponseWriter, r *http.Request) {
+	var req userReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		return
+	}
+
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, c.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		return
+	}
+
+	newHashedPassword, err := auth.HashPassword(req.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
+		return
+	}
+
+	params := database.UpdateUserEmailPasswordParams{
+		Email:          req.Email,
+		HashedPassword: newHashedPassword,
+		ID:             userID,
+	}
+
+	dbUser, err := c.db.UpdateUserEmailPassword(r.Context(), params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error updating user record", err)
+		return
+	}
+
+	resp := userResp{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Email:     dbUser.Email,
+	}
+
+	respondWithJSON(w, http.StatusOK, resp)
+}
+
 func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 	var req userReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -135,7 +241,11 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 
 	dbuser, err := c.db.GetUserFromEmail(r.Context(), req.Email)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "Database error", err)
 		return
 	}
 
@@ -187,7 +297,11 @@ func (c *apiConfig) handlerRefreshEnd(w http.ResponseWriter, r *http.Request) {
 
 	dbRefreshToken, err := c.db.GetRefreshToken(r.Context(), refreshToken)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in database", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in database", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "Database error", err)
 		return
 	}
 
