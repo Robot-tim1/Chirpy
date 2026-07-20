@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"unicode/utf8"
 
 	"github.com/Robot-tim1/Chirpy/internal/auth"
@@ -60,10 +61,33 @@ func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
-	dbChirps, err := c.db.GetChirps(r.Context())
+	var dbChirps []database.Chirp
+	var err error
+	authorIDString := r.URL.Query().Get("author_id")
+	if authorIDString != "" {
+		authorID, ParseErr := uuid.Parse(authorIDString)
+		if ParseErr != nil {
+			respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", ParseErr)
+			return
+		}
+		dbChirps, err = c.db.GetChirpsAuthorID(r.Context(), authorID)
+	} else {
+		dbChirps, err = c.db.GetChirps(r.Context())
+	}
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error getting chirps from database", err)
 		return
+	}
+
+	sortQuery := r.URL.Query().Get("sort")
+	if sortQuery != "" {
+		if sortQuery != "asc" && sortQuery != "desc" {
+			respondWithError(w, http.StatusBadRequest, "no sort query of that kind", nil)
+			return
+		}
+		if sortQuery == "desc" {
+			sort.Slice(dbChirps, func(i, j int) bool { return dbChirps[i].CreatedAt.After(dbChirps[j].CreatedAt) })
+		}
 	}
 
 	resp := make([]chirpResp, 0, len(dbChirps))
