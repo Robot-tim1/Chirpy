@@ -34,17 +34,18 @@ func (c *apiConfig) handlerUserPost(w http.ResponseWriter, r *http.Request) {
 		HashedPassword: hashedpassword,
 	}
 
-	dbuser, err := c.db.CreateUser(r.Context(), params)
+	dbUser, err := c.db.CreateUser(r.Context(), params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error creating user in database", err)
 		return
 	}
 
 	resp := userResp{
-		ID:        dbuser.ID,
-		CreatedAt: dbuser.CreatedAt,
-		UpdatedAt: dbuser.UpdatedAt,
-		Email:     dbuser.Email,
+		ID:          dbUser.ID,
+		CreatedAt:   dbUser.CreatedAt,
+		UpdatedAt:   dbUser.UpdatedAt,
+		Email:       dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 
 	respondWithJSON(w, http.StatusCreated, resp)
@@ -88,10 +89,11 @@ func (c *apiConfig) handlerUserPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := userResp{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
+		ID:          dbUser.ID,
+		CreatedAt:   dbUser.CreatedAt,
+		UpdatedAt:   dbUser.UpdatedAt,
+		Email:       dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 
 	respondWithJSON(w, http.StatusOK, resp)
@@ -104,7 +106,7 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbuser, err := c.db.GetUserFromEmail(r.Context(), req.Email)
+	dbUser, err := c.db.GetUserFromEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
@@ -114,13 +116,13 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	match, err := auth.CheckPasswordHash(req.Password, dbuser.HashedPassword)
+	match, err := auth.CheckPasswordHash(req.Password, dbUser.HashedPassword)
 	if !match {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
 
-	tokenString, err := auth.MakeJWT(dbuser.ID, c.secret, time.Hour)
+	tokenString, err := auth.MakeJWT(dbUser.ID, c.secret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
 		return
@@ -129,7 +131,7 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 	refreshToken := auth.MakeRefreshToken()
 	params := database.CreateRefreshTokenParams{
 		Token:     refreshToken,
-		UserID:    dbuser.ID,
+		UserID:    dbUser.ID,
 		ExpiresAt: time.Now().Add(time.Hour * 1440),
 	}
 
@@ -141,10 +143,11 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 
 	resp := authResp{
 		userResp: userResp{
-			ID:        dbuser.ID,
-			CreatedAt: dbuser.CreatedAt,
-			UpdatedAt: dbuser.UpdatedAt,
-			Email:     dbuser.Email,
+			ID:          dbUser.ID,
+			CreatedAt:   dbUser.CreatedAt,
+			UpdatedAt:   dbUser.UpdatedAt,
+			Email:       dbUser.Email,
+			IsChirpyRed: dbUser.IsChirpyRed,
 		},
 		Token:        tokenString,
 		RefreshToken: refreshToken,

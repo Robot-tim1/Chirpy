@@ -17,12 +17,14 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 type ApiConfigParams struct {
 	Db       database.DBTX
 	Platform string
 	Secret   string
+	PolkaKey string
 }
 
 func NewServer(params ApiConfigParams) *Server {
@@ -33,6 +35,7 @@ func NewServer(params ApiConfigParams) *Server {
 			db:             database.New(params.Db),
 			platform:       params.Platform,
 			secret:         params.Secret,
+			polkaKey:       params.PolkaKey,
 		},
 	}
 	s.registerRoutes()
@@ -59,4 +62,5 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/login", s.cfg.handlerLoginEnd)
 	s.mux.HandleFunc("POST /api/refresh", s.cfg.handlerRefreshEnd)
 	s.mux.HandleFunc("POST /api/revoke", s.cfg.handlerRevokeEnd)
+	s.mux.HandleFunc("POST /api/polka/webhooks", s.cfg.handlerPolkaWebhook)
 }

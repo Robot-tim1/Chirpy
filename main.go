@@ -28,7 +28,9 @@ func main() {
 		Db:       db,
 		Platform: os.Getenv("PLATFORM"),
 		Secret:   os.Getenv("SECRET"),
+		PolkaKey: os.Getenv("POLKA_KEY"),
 	}
+
 	server := api.NewServer(apiConfigParams)
 
 	httpServer := &http.Server{
