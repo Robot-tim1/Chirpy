@@ -71,9 +71,12 @@ go run .
 This project gave me a practical foundation in building secure, real-world backend services in Go, with a focus on API design, authentication, and request handling.
 
 ### Backend development in Go
-I learned how to structure a web server in Go, route requests with mux/ServeMux, and connect those routes to handler functions that process requests and return meaningful responses. Through firsthand experience building RESTful api endpoints, I learned handling JSON requests and returning responses, and tying backend logic together with error handling and persistence in a real application.
+  - Server Structure & Routing: Structured a scalable Go web server, efficiently routing requests and mapping handler functions using mux/ServeMux
+  - RESTful APIs: Designed RESTful JSON endpoints with strict payload validation.
 
 ### Authentication and security
-I gained hands-on experience implementing secure authentication flows, including password hashing with Argon2id, issuing and validating JWT access tokens, and managing refresh tokens for a more complete auth experience.
+  - Secure Passwords: Implemented secure password hashing using Argon2id for strong resistance against GPU-based cracking.
+  - JWT Authentication: Managed authentication flows by issuing and validating JWT access tokens.
+  - Session Management: Implemented refresh tokens to create a complete, secure user session experience.
 
 
