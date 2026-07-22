@@ -1,5 +1,5 @@
 ## Chirpy
-A hands-on Go backend learning project for building a simple social API with authentication, persistence, and HTTP routing. Courtesy of [boot.dev](https://www.boot.dev).
+A hands-on Go backend learning guided project for building a simple social API with authentication, persistence, and HTTP routing. Courtesy of [boot.dev](https://www.boot.dev).
 
 The guided project followed was mostly hands off with implementation details, at most providing pseudo code for what to do. To see what I learned from this project, scroll down past the installation section.
 
@@ -66,3 +66,14 @@ Or, if you prefer not to build first:
 ```
 go run .
 ```
+
+## What I learned
+This project gave me a practical foundation in building secure, real-world backend services in Go, with a focus on API design, authentication, and request handling.
+
+### Backend development in Go
+I learned how to structure a web server in Go, route requests with mux/ServeMux, and connect those routes to handler functions that process requests and return meaningful responses. Through firsthand experience building RESTful api endpoints, I learned handling JSON requests and returning responses, and tying backend logic together with error handling and persistence in a real application.
+
+### Authentication and security
+I gained hands-on experience implementing secure authentication flows, including password hashing with Argon2id, issuing and validating JWT access tokens, and managing refresh tokens for a more complete auth experience.
+
+
