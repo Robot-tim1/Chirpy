@@ -16,19 +16,19 @@ import (
 func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 	var req chirpReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", nil)
 		return
 	}
 
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", nil)
 		return
 	}
 
 	userID, err := auth.ValidateJWT(tokenString, c.secret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", nil)
 		return
 	}
 
@@ -45,7 +45,7 @@ func (c *apiConfig) handlerChirpPost(w http.ResponseWriter, r *http.Request) {
 
 	dbChirp, err := c.db.CreateChirp(r.Context(), params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error creating chirp in database", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 	if authorIDString != "" {
 		authorID, ParseErr := uuid.Parse(authorIDString)
 		if ParseErr != nil {
-			respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", ParseErr)
+			respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", nil)
 			return
 		}
 		dbChirps, err = c.db.GetChirpsAuthorID(r.Context(), authorID)
@@ -75,7 +75,11 @@ func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 		dbChirps, err = c.db.GetChirps(r.Context())
 	}
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error getting chirps from database", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "author has no posts", nil)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -101,17 +105,17 @@ func (c *apiConfig) handlerChirpGet(w http.ResponseWriter, r *http.Request) {
 func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
 	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", err)
+		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", nil)
 		return
 	}
 
 	dbChirp, err := c.db.GetChirp(r.Context(), chirpId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, "Chirp could not be found", err)
+			respondWithError(w, http.StatusNotFound, "Chirp could not be found", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -122,40 +126,40 @@ func (c *apiConfig) handlerChirpGetID(w http.ResponseWriter, r *http.Request) {
 func (c *apiConfig) handlerChirpDeleteID(w http.ResponseWriter, r *http.Request) {
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", nil)
 		return
 	}
 
 	userID, err := auth.ValidateJWT(tokenString, c.secret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", nil)
 		return
 	}
 
 	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", err)
+		respondWithError(w, http.StatusBadRequest, "error parsing id into uuid", nil)
 		return
 	}
 
 	dbChirp, err := c.db.GetChirp(r.Context(), chirpId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, "Chirp could not be found", err)
+			respondWithError(w, http.StatusNotFound, "Chirp could not be found", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
 	if dbChirp.UserID != userID {
-		respondWithError(w, http.StatusForbidden, "Can not delete chirp post form other user", nil)
+		respondWithError(w, http.StatusForbidden, "Can not delete chirp post from other user", nil)
 		return
 	}
 
 	err = c.db.DeleteChirp(r.Context(), dbChirp.ID)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error deleting chirp record", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 

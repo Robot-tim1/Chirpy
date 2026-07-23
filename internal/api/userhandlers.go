@@ -14,18 +14,18 @@ import (
 func (c *apiConfig) handlerUserPost(w http.ResponseWriter, r *http.Request) {
 	var req userReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", nil)
 		return
 	}
 
-	if req.Password == "" {
-		respondWithError(w, http.StatusBadRequest, "please enter a password", nil)
+	if req.Password == "" || req.Email == "" {
+		respondWithError(w, http.StatusBadRequest, "please fill out both the email and password fields", nil)
 		return
 	}
 
 	hashedpassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -36,7 +36,7 @@ func (c *apiConfig) handlerUserPost(w http.ResponseWriter, r *http.Request) {
 
 	dbUser, err := c.db.CreateUser(r.Context(), params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error creating user in database", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -54,25 +54,30 @@ func (c *apiConfig) handlerUserPost(w http.ResponseWriter, r *http.Request) {
 func (c *apiConfig) handlerUserPut(w http.ResponseWriter, r *http.Request) {
 	var req userReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", nil)
+		return
+	}
+
+	if req.Password == "" && req.Email == "" {
+		respondWithError(w, http.StatusBadRequest, "at least the email or password fields must be filled out", nil)
 		return
 	}
 
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", err)
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", nil)
 		return
 	}
 
 	userID, err := auth.ValidateJWT(tokenString, c.secret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", err)
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid", nil)
 		return
 	}
 
 	newHashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error hashing password", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -84,7 +89,7 @@ func (c *apiConfig) handlerUserPut(w http.ResponseWriter, r *http.Request) {
 
 	dbUser, err := c.db.UpdateUserEmailPassword(r.Context(), params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error updating user record", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -102,7 +107,7 @@ func (c *apiConfig) handlerUserPut(w http.ResponseWriter, r *http.Request) {
 func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 	var req userReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", nil)
 		return
 	}
 
@@ -112,19 +117,19 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 			respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
 	match, err := auth.CheckPasswordHash(req.Password, dbUser.HashedPassword)
 	if !match {
-		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", nil)
 		return
 	}
 
 	tokenString, err := auth.MakeJWT(dbUser.ID, c.secret, time.Hour)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -137,7 +142,7 @@ func (c *apiConfig) handlerLoginEnd(w http.ResponseWriter, r *http.Request) {
 
 	_, err = c.db.CreateRefreshToken(r.Context(), params)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error creating refresh token record", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 

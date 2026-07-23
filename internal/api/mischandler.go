@@ -29,4 +29,5 @@ func (c *apiConfig) handlerResetEnd(w http.ResponseWriter, r *http.Request) {
 	}
 	c.fileserverHits.Store(0)
 	c.db.DeleteUsers(r.Context())
+	w.WriteHeader(http.StatusOK)
 }

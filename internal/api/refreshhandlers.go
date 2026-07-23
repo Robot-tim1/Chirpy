@@ -12,17 +12,17 @@ import (
 func (c *apiConfig) handlerRefreshEnd(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in header", err)
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", nil)
 		return
 	}
 
 	dbRefreshToken, err := c.db.GetRefreshToken(r.Context(), refreshToken)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusUnauthorized, "refresh token could not be found in database", err)
+			respondWithError(w, http.StatusUnauthorized, "refresh token does not exist", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -33,7 +33,7 @@ func (c *apiConfig) handlerRefreshEnd(w http.ResponseWriter, r *http.Request) {
 
 	newTokenString, err := auth.MakeJWT(dbRefreshToken.UserID, c.secret, time.Hour)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error making JWT token", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
@@ -45,13 +45,13 @@ func (c *apiConfig) handlerRefreshEnd(w http.ResponseWriter, r *http.Request) {
 func (c *apiConfig) handlerRevokeEnd(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "error refresh token could not be found", err)
+		respondWithError(w, http.StatusUnauthorized, "No Authorization header found", nil)
 		return
 	}
 
 	err = c.db.RevokeRefreshToken(r.Context(), refreshToken)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "error revoking refresh token", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 

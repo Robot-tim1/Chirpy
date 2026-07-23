@@ -22,7 +22,7 @@ func (c *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) 
 
 	var req polkaReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondWithError(w, http.StatusBadRequest, "error decoding request body", err)
+		respondWithError(w, http.StatusBadRequest, "error decoding request body", nil)
 		return
 	}
 
@@ -37,7 +37,7 @@ func (c *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) 
 			respondWithError(w, http.StatusNotFound, "user not found", nil)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "Database error", err)
+		respondWithError(w, http.StatusInternalServerError, "An unexpected server error occurred", err)
 		return
 	}
 
