@@ -3,7 +3,7 @@ A hands-on Go backend learning guided project for building a simple social API w
 
 The guided project followed was mostly hands off with implementation details, at most providing pseudo code for what to do. To see what I learned from this project, scroll down past the installation section.
 
-The api docs will be in the /docs folder(currently not made).
+The api docs will be in the /docs folder.
 
 ## Installation
 First clone the project and go into the created folder.
